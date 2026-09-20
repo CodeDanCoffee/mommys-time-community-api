@@ -1,10 +1,21 @@
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import List, Optional
 
-from pydantic import BaseModel
+from pydantic import BaseModel, field_serializer
 
 # Topics must stay in sync with the iOS app's VillageTopic raw values.
 ALLOWED_TOPICS = {"Nights", "Feeding", "Me-time"}
+
+
+def _iso_utc(dt: datetime) -> str:
+    """Serialize as unambiguous UTC ISO-8601 with a trailing Z, no microseconds.
+
+    SQLite hands back naive datetimes, so we assume/normalize to UTC — clients
+    (the iOS app) need a timezone to parse correctly.
+    """
+    if dt.tzinfo is None:
+        dt = dt.replace(tzinfo=timezone.utc)
+    return dt.astimezone(timezone.utc).replace(microsecond=0).isoformat().replace("+00:00", "Z")
 
 
 # ---- Auth ----
@@ -55,6 +66,10 @@ class ReplyOut(BaseModel):
     created_at: datetime
     is_mine: bool = False
 
+    @field_serializer("created_at")
+    def _ser_created_at(self, dt: datetime) -> str:
+        return _iso_utc(dt)
+
 
 class ThreadOut(BaseModel):
     id: str
@@ -68,6 +83,10 @@ class ThreadOut(BaseModel):
     hug_count: int
     hugged: bool = False
     is_mine: bool = False
+
+    @field_serializer("created_at")
+    def _ser_created_at(self, dt: datetime) -> str:
+        return _iso_utc(dt)
 
 
 class ThreadDetailOut(ThreadOut):
