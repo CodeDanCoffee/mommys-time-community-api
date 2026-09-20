@@ -19,13 +19,14 @@ def sign_in_with_apple(req: AppleLoginRequest, session: Session = Depends(get_se
     """
     email = req.email
 
-    if req.identity_token:
+    # In dev, prefer the dev shortcut when supplied — so the Swagger form's
+    # leftover `"identity_token": "string"` placeholder is harmless.
+    if settings.allow_dev_login and req.dev_apple_sub:
+        apple_sub = req.dev_apple_sub
+    elif req.identity_token:
         claims = verify_apple_identity_token(req.identity_token)
         apple_sub = claims["sub"]
         email = claims.get("email") or email
-    elif settings.allow_dev_login and req.dev_apple_sub:
-        # Dev shortcut only — never trusts an unverified id in production.
-        apple_sub = req.dev_apple_sub
     else:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
