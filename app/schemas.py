@@ -3,8 +3,10 @@ from typing import List, Optional
 
 from pydantic import BaseModel, field_serializer
 
-# Topics must stay in sync with the iOS app's VillageTopic raw values.
-ALLOWED_TOPICS = {"Nights", "Feeding", "Me-time"}
+# Topics are free text — whatever the poster types. The app offers the topics
+# already in use as suggestions, so no fixed list lives on either side. Capped
+# so a topic stays a label rather than a sentence.
+MAX_TOPIC_LENGTH = 40
 
 
 def _iso_utc(dt: datetime) -> str:

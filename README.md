@@ -63,7 +63,7 @@ Optional: seed a couple of sample discussions — `python seed.py`.
 | `GET` | `/` | — | Health check |
 | `POST` | `/auth/apple` | — | Sign in with Apple → session token |
 | `GET` | `/auth/me` | ✅ | Current user |
-| `GET` | `/threads` | optional | List discussions (`?topic=Nights\|Feeding\|Me-time`) |
+| `GET` | `/threads` | optional | List discussions (optional `?topic=` filter) |
 | `POST` | `/threads` | ✅ | Create a discussion |
 | `GET` | `/threads/{id}` | optional | Thread with its replies |
 | `POST` | `/threads/{id}/replies` | ✅ | Reply to a thread |
@@ -75,7 +75,10 @@ Auth "optional" endpoints work without a token, but if you send one they also
 tell you whether **you** hugged a thread (`hugged`) and which posts are yours
 (`is_mine`).
 
-Topics mirror the app's `VillageTopic`: **Nights**, **Feeding**, **Me-time**.
+Topics are free text — whatever the poster types, trimmed and capped at 40
+characters (`MAX_TOPIC_LENGTH`). There's no fixed list on either side: the app
+builds its filter chips and its "existing topics" suggestions from the topics
+already in use.
 
 ## Data model
 
@@ -92,9 +95,31 @@ pip install httpx           # TestClient dependency
 python smoke_test.py        # runs the full flow with the dev login
 ```
 
+## Deployment
+
+Live at **http://mommys-time-api.codedancoffee.com** (nginx → uvicorn). The iOS
+app points here by default; see `CommunityConfig.swift` in mommys-time-ios.
+
+Verified on the deployed host: `/` health check, `/docs`, all eight routes in
+`/openapi.json`, `ALLOW_DEV_LOGIN` off (a `dev_apple_sub` login is rejected),
+and 401s on the authed routes for a missing or bad token.
+
+**Still to do: TLS.** Port 443 answers, but with the certificate for another
+site on the box (`zakatcalculator.sol.site`), so HTTPS fails the handshake for
+this hostname and the app has to talk plain HTTP behind an App Transport
+Security exception. DNS already resolves, so issuing a certificate is enough:
+
+```bash
+sudo certbot --nginx -d mommys-time-api.codedancoffee.com
+```
+
+Then switch `CommunityConfig.deployed` to `https://` and delete the
+`NSExceptionDomains` block from the app's `Info.plist`.
+
 ## Production notes
 
 - Set a strong **`JWT_SECRET`** and a real **`DATABASE_URL`** (Postgres).
+  Rotating the secret invalidates every existing session token.
 - Keep **`ALLOW_DEV_LOGIN=false`**.
 - Confirm **`APPLE_BUNDLE_ID`** matches the app (`com.codedancoffee.mommys-time`).
 - Run behind HTTPS (e.g. `uvicorn`/`gunicorn` behind a reverse proxy).

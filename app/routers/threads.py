@@ -7,7 +7,7 @@ from sqlmodel import Session, select
 from ..database import get_session
 from ..models import Hug, Reply, Thread, User
 from ..schemas import (
-    ALLOWED_TOPICS,
+    MAX_TOPIC_LENGTH,
     ReplyCreate,
     ReplyOut,
     ThreadCreate,
@@ -98,10 +98,16 @@ def create_thread(
     session: Session = Depends(get_session),
     user: User = Depends(get_current_user),
 ):
-    if payload.topic not in ALLOWED_TOPICS:
+    topic = payload.topic.strip()
+    if not topic:
         raise HTTPException(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-            detail=f"topic must be one of {sorted(ALLOWED_TOPICS)}",
+            detail="topic is required",
+        )
+    if len(topic) > MAX_TOPIC_LENGTH:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail=f"topic must be {MAX_TOPIC_LENGTH} characters or fewer",
         )
     if not payload.title.strip():
         raise HTTPException(
@@ -110,7 +116,7 @@ def create_thread(
         )
     thread = Thread(
         author_id=user.id,
-        topic=payload.topic,
+        topic=topic,
         title=payload.title.strip(),
         body=payload.body.strip(),
     )
