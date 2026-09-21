@@ -4,7 +4,7 @@ from sqlmodel import Session, select
 from ..config import settings
 from ..database import get_session
 from ..models import User
-from ..schemas import AppleLoginRequest, AuthResponse, UserOut
+from ..schemas import AppleLoginRequest, AuthResponse, UpdateMeRequest, UserOut
 from ..security import create_access_token, get_current_user, verify_apple_identity_token
 
 router = APIRouter(prefix="/auth", tags=["auth"])
@@ -62,4 +62,21 @@ def sign_in_with_apple(req: AppleLoginRequest, session: Session = Depends(get_se
 
 @router.get("/me", response_model=UserOut, tags=["auth"])
 def me(user: User = Depends(get_current_user)):
+    return UserOut(id=user.id, display_name=user.display_name, email=user.email)
+
+
+@router.put("/me", response_model=UserOut, tags=["auth"])
+def update_me(
+    req: UpdateMeRequest,
+    user: User = Depends(get_current_user),
+    session: Session = Depends(get_session),
+):
+    """Update the signed-in user's display name. Author names are resolved live,
+    so this also fixes the name on the user's existing posts and replies."""
+    name = req.display_name.strip()
+    if name:
+        user.display_name = name
+        session.add(user)
+        session.commit()
+        session.refresh(user)
     return UserOut(id=user.id, display_name=user.display_name, email=user.email)

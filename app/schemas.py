@@ -40,6 +40,10 @@ class UserOut(BaseModel):
     email: Optional[str] = None
 
 
+class UpdateMeRequest(BaseModel):
+    display_name: str
+
+
 class AuthResponse(BaseModel):
     access_token: str
     token_type: str = "bearer"
