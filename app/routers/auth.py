@@ -3,7 +3,7 @@ from sqlmodel import Session, select
 
 from ..config import settings
 from ..database import get_session
-from ..models import User
+from ..models import Block, Hug, Reply, Thread, User
 from ..schemas import AppleLoginRequest, AuthResponse, UpdateMeRequest, UserOut
 from ..security import create_access_token, get_current_user, verify_apple_identity_token
 
@@ -80,3 +80,40 @@ def update_me(
         session.commit()
         session.refresh(user)
     return UserOut(id=user.id, display_name=user.display_name, email=user.email)
+
+
+@router.delete("/me", status_code=status.HTTP_204_NO_CONTENT, tags=["auth"])
+def delete_me(
+    user: User = Depends(get_current_user),
+    session: Session = Depends(get_session),
+):
+    """Permanently delete the signed-in user and everything they created:
+    their threads (with those threads' replies and hugs), their replies and
+    hugs on others' threads, and their reports and blocks."""
+    uid = user.id
+
+    # Threads authored by the user — remove dependent replies/hugs first.
+    own_threads = session.exec(select(Thread).where(Thread.author_id == uid)).all()
+    for thread in own_threads:
+        for reply in session.exec(select(Reply).where(Reply.thread_id == thread.id)).all():
+            session.delete(reply)
+        for hug in session.exec(select(Hug).where(Hug.thread_id == thread.id)).all():
+            session.delete(hug)
+        session.delete(thread)
+
+    # The user's own replies/hugs on other people's threads.
+    for reply in session.exec(select(Reply).where(Reply.author_id == uid)).all():
+        session.delete(reply)
+    for hug in session.exec(select(Hug).where(Hug.user_id == uid)).all():
+        session.delete(hug)
+
+    # Blocks in either direction.
+    for block in session.exec(
+        select(Block).where(
+            (Block.blocker_id == uid) | (Block.blocked_id == uid)
+        )
+    ).all():
+        session.delete(block)
+
+    session.delete(user)
+    session.commit()

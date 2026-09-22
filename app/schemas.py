@@ -64,6 +64,10 @@ class ReplyCreate(BaseModel):
     body: str
 
 
+class ReportCreate(BaseModel):
+    reason: str = ""
+
+
 class ReplyOut(BaseModel):
     id: str
     body: str

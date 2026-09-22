@@ -61,3 +61,30 @@ class Hug(SQLModel, table=True):
     user_id: str = Field(foreign_key="users.id", primary_key=True)
     thread_id: str = Field(foreign_key="threads.id", primary_key=True)
     created_at: datetime = Field(default_factory=_now)
+
+
+class Report(SQLModel, table=True):
+    """A user's report of objectionable content. Reviewed by us out-of-band."""
+
+    __tablename__ = "reports"
+
+    id: str = Field(default_factory=_uuid, primary_key=True)
+    reporter_id: str = Field(foreign_key="users.id", index=True)
+    # What was reported: a "thread" or a "reply", plus its id.
+    target_type: str
+    target_id: str = Field(index=True)
+    reason: str = ""
+    created_at: datetime = Field(default_factory=_now)
+
+
+class Block(SQLModel, table=True):
+    """One user blocking another — the blocker no longer sees their content.
+
+    Composite primary key so the same block can't be recorded twice.
+    """
+
+    __tablename__ = "blocks"
+
+    blocker_id: str = Field(foreign_key="users.id", primary_key=True)
+    blocked_id: str = Field(foreign_key="users.id", primary_key=True)
+    created_at: datetime = Field(default_factory=_now)
